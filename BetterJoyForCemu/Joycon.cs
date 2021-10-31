@@ -16,6 +16,7 @@ namespace BetterJoyForCemu {
         public string path = String.Empty;
         public bool isPro = false;
         public bool isSnes = false;
+        public bool isN64 = false;
         bool isUSB = false;
         private Joycon _other = null;
         public Joycon other {
@@ -282,7 +283,7 @@ namespace BetterJoyForCemu {
         static float AHRS_beta = float.Parse(ConfigurationManager.AppSettings["AHRS_beta"]);
         private MadgwickAHRS AHRS = new MadgwickAHRS(0.005f, AHRS_beta); // for getting filtered Euler angles of rotation; 5ms sampling rate
 
-        public Joycon(IntPtr handle_, bool imu, bool localize, float alpha, bool left, string path, string serialNum, int id = 0, bool isPro = false, bool isSnes = false, bool thirdParty = false) {
+        public Joycon(IntPtr handle_, bool imu, bool localize, float alpha, bool left, string path, string serialNum, int id = 0, bool isPro = false, bool isSnes = false, bool isN64 = false, bool thirdParty = false) {
             serial_number = serialNum;
             activeData = new float[6];
             handle = handle_;
@@ -296,8 +297,9 @@ namespace BetterJoyForCemu {
 
             PadId = id;
             LED = (byte)(0x1 << PadId);
-            this.isPro = isPro || isSnes;
+            this.isPro = isPro || isSnes || isN64;
             this.isSnes = isSnes;
+            this.isN64 = isN64;
             isUSB = serialNum == "000000000001";
             this.thirdParty = thirdParty;
 
@@ -339,7 +341,6 @@ namespace BetterJoyForCemu {
         }
 
         public void DebugPrint(String s, DebugType d) {
-            if (debug_type == DebugType.NONE) return;
             if (d == DebugType.ALL || d == debug_type || debug_type == DebugType.ALL) {
                 form.AppendTextBox(s + "\r\n");
             }
@@ -501,7 +502,7 @@ namespace BetterJoyForCemu {
 
             if (battery <= 1) {
                 form.notifyIcon.Visible = true;
-                form.notifyIcon.BalloonTipText = String.Format("Controller {0} ({1}) - low battery notification!", PadId, isPro ? "Pro Controller" : (isSnes ? "SNES Controller" : (isLeft ? "Joycon Left" : "Joycon Right")));
+                form.notifyIcon.BalloonTipText = String.Format("Controller {0} ({1}) - low battery notification!", PadId, isPro ? "Pro Controller" : (isSnes ? "SNES Controller" : (isN64 ? "N64 Controller" : (isLeft ? "Joycon Left" : "Joycon Right"))));
                 form.notifyIcon.ShowBalloonTip(0);
             }
         }
@@ -590,7 +591,7 @@ namespace BetterJoyForCemu {
                 }
 
 
-                if (ts_en == raw_buf[1] && !isSnes) {
+                if (ts_en == raw_buf[1] && !isSnes && !isN64) {
                     form.AppendTextBox("Duplicate timestamp enqueued.\r\n");
                     DebugPrint(string.Format("Duplicate timestamp enqueued. TS: {0:X2}", ts_en), DebugType.THREADING);
                 }
@@ -1006,7 +1007,7 @@ namespace BetterJoyForCemu {
 
         // Get Gyro/Accel data
         private void ExtractIMUValues(byte[] report_buf, int n = 0) {
-            if (!isSnes) {
+            if (!isSnes && !isN64) {
                 gyr_r[0] = (Int16)(report_buf[19 + n * 12] | ((report_buf[20 + n * 12] << 8) & 0xff00));
                 gyr_r[1] = (Int16)(report_buf[21 + n * 12] | ((report_buf[22 + n * 12] << 8) & 0xff00));
                 gyr_r[2] = (Int16)(report_buf[23 + n * 12] | ((report_buf[24 + n * 12] << 8) & 0xff00));
@@ -1169,7 +1170,7 @@ namespace BetterJoyForCemu {
         }
 
         private void dump_calibration_data() {
-            if (isSnes || thirdParty) {
+            if (isSnes || isN64 || thirdParty) {
                 short[] temp = (short[])ConfigurationManager.AppSettings["acc_sensiti"].Split(',').Select(s => short.Parse(s)).ToArray();
                 acc_sensiti[0] = temp[0]; acc_sensiti[1] = temp[1]; acc_sensiti[2] = temp[2];
                 temp = (short[])ConfigurationManager.AppSettings["gyr_sensiti"].Split(',').Select(s => short.Parse(s)).ToArray();
@@ -1322,6 +1323,7 @@ namespace BetterJoyForCemu {
             var isPro = input.isPro;
             var isLeft = input.isLeft;
             var isSnes = input.isSnes;
+            var isN64 = input.isN64;
             var other = input.other;
             var GyroAnalogSliders = input.GyroAnalogSliders;
 
@@ -1392,7 +1394,10 @@ namespace BetterJoyForCemu {
                 output.guide = false;
 
             if (!isSnes) {
-                if (other != null || isPro) { // no need for && other != this
+                if ( isN64 ) {
+                    output.axis_left_x = CastStickValue(stick2[0]);
+                    output.axis_left_y = CastStickValue(stick2[1]);
+                } else if (other != null || isPro) { // no need for && other != this
                     output.axis_left_x = CastStickValue((other == input && !isLeft) ? stick2[0] : stick[0]);
                     output.axis_left_y = CastStickValue((other == input && !isLeft) ? stick2[1] : stick[1]);
 
@@ -1426,6 +1431,7 @@ namespace BetterJoyForCemu {
             var isPro = input.isPro;
             var isLeft = input.isLeft;
             var isSnes = input.isSnes;
+            var isN64 = input.isN64;
             var other = input.other;
             var GyroAnalogSliders = input.GyroAnalogSliders;
 
@@ -1523,7 +1529,10 @@ namespace BetterJoyForCemu {
                 output.ps = false;
 
             if (!isSnes) {
-                if (other != null || isPro) { // no need for && other != this
+                if (isN64) {
+                    output.thumb_left_x = CastStickValueByte(-stick2[0]);
+                    output.thumb_left_y = CastStickValueByte(stick2[1]);
+                } else if (other != null || isPro) { // no need for && other != this
                     output.thumb_left_x = CastStickValueByte((other == input && !isLeft) ? -stick2[0] : -stick[0]);
                     output.thumb_left_y = CastStickValueByte((other == input && !isLeft) ? stick2[1] : stick[1]);
                     output.thumb_right_x = CastStickValueByte((other == input && !isLeft) ? -stick[0] : -stick2[0]);

@@ -238,7 +238,8 @@
     <Content Include="Drivers\README.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Icons\snes.png" />
+    <Resource Include="Icons\n64.png" />
+    <Resource Include="Icons\snes.png" />
     <None Include="Properties\app.manifest" />
     <Content Include="Icons\betterjoyforcemu_icon.ico" />
     <Content Include="x86\hidapi.dll">
@@ -247,9 +248,9 @@
     <Content Include="x64\hidapi.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Icons\cross.png" />
-    <Content Include="Icons\jc_left_s.png" />
-    <Content Include="Icons\jc_right_s.png" />
+    <Resource Include="Icons\cross.png" />
+    <Resource Include="Icons\jc_left_s.png" />
+    <Resource Include="Icons\jc_right_s.png" />
     <Resource Include="Icons\jc_left.png" />
     <Resource Include="Icons\jc_right.png" />
     <Resource Include="Icons\pro.png" />
