@@ -111,6 +111,11 @@ namespace BetterJoyForCemu {
         private UInt16 deadzone2;
         private UInt16[] stick2_precal = { 0, 0 };
 
+        private byte[] stickN64_raw = { 0, 0, 0 };
+        private UInt16[] stickN64_cal = { 0, 0, 0, 0, 0, 0 };
+        private UInt16 deadzoneN64;
+        private UInt16[] stickN64_precal = { 0, 0 };
+
         private bool stop_polling = true;
         private bool imu_enabled = false;
         private Int16[] acc_r = { 0, 0, 0 };
@@ -894,7 +899,23 @@ namespace BetterJoyForCemu {
         bool swapXY = Boolean.Parse(ConfigurationManager.AppSettings["SwapXY"]);
         private int ProcessButtonsAndStick(byte[] report_buf) {
             if (report_buf[0] == 0x00) throw new ArgumentException("received undefined report. This is probably a bug");
-            if (!isSnes) {
+            if (isN64) {
+                stickN64_raw[0] = report_buf[6];
+                stickN64_raw[1] = report_buf[7];
+                stickN64_raw[2] = report_buf[8];
+                stickN64_precal[0] = (UInt16)(stickN64_raw[0] | ((stickN64_raw[1] & 0xf) << 8));
+                stickN64_precal[1] = (UInt16)((stickN64_raw[1] >> 4) | (stickN64_raw[2] << 4));
+                stick = CenterSticks(stickN64_precal, stickN64_cal, deadzoneN64);
+
+                if (stick[0] <= -1.0f && stick[1] <= -1.0f) {
+                    stickN64_raw[0] = report_buf[6 + 3];
+                    stickN64_raw[1] = report_buf[7 + 3];
+                    stickN64_raw[2] = report_buf[8 + 3];
+                    stickN64_precal[0] = (UInt16)(stickN64_raw[0] | ((stickN64_raw[1] & 0xf) << 8));
+                    stickN64_precal[1] = (UInt16)((stickN64_raw[1] >> 4) | (stickN64_raw[2] << 4));
+                    stick = CenterSticks(stickN64_precal, stickN64_cal, deadzoneN64);
+                }
+            } else if (!isSnes) {
                 stick_raw[0] = report_buf[6 + (isLeft ? 0 : 3)];
                 stick_raw[1] = report_buf[7 + (isLeft ? 0 : 3)];
                 stick_raw[2] = report_buf[8 + (isLeft ? 0 : 3)];
@@ -1183,6 +1204,10 @@ namespace BetterJoyForCemu {
                 stick2_cal[0] = temp2[0]; stick2_cal[1] = temp2[1]; stick2_cal[2] = temp2[2];
                 stick2_cal[3] = temp2[3]; stick2_cal[4] = temp2[4]; stick2_cal[5] = temp2[5];
                 deadzone2 = ushort.Parse(ConfigurationManager.AppSettings["deadzone2"]);
+                temp2 = (ushort[])ConfigurationManager.AppSettings["stickN64_cal"].Split(',').Select(s => ushort.Parse(s.Substring(2), System.Globalization.NumberStyles.HexNumber)).ToArray();
+                stickN64_cal[0] = temp2[0]; stickN64_cal[1] = temp2[1]; stickN64_cal[2] = temp2[2];
+                stickN64_cal[3] = temp2[3]; stickN64_cal[4] = temp2[4]; stickN64_cal[5] = temp2[5];
+                deadzoneN64 = ushort.Parse(ConfigurationManager.AppSettings["deadzoneN64"]);
                 return;
             }
 
@@ -1395,13 +1420,8 @@ namespace BetterJoyForCemu {
 
             if (!isSnes) {
                 if ( isN64 ) {
-                    if ( stick[0] <= -1.0f && stick[1] <= -1.0f ) {
-                        output.axis_left_x = CastStickValue(stick2[0]);
-                        output.axis_left_y = CastStickValue(stick2[1]);
-                    } else {
-                        output.axis_left_x = CastStickValue(stick[0]);
-                        output.axis_left_y = CastStickValue(stick[1]);
-                    }
+                    output.axis_left_x = CastStickValue(stick[0]);
+                    output.axis_left_y = CastStickValue(stick[1]);
                 } else if (other != null || isPro) { // no need for && other != this
                     output.axis_left_x = CastStickValue((other == input && !isLeft) ? stick2[0] : stick[0]);
                     output.axis_left_y = CastStickValue((other == input && !isLeft) ? stick2[1] : stick[1]);
@@ -1535,8 +1555,8 @@ namespace BetterJoyForCemu {
 
             if (!isSnes) {
                 if (isN64) {
-                    output.thumb_left_x = CastStickValueByte(-stick2[0]);
-                    output.thumb_left_y = CastStickValueByte(stick2[1]);
+                    output.thumb_left_x = CastStickValueByte(-stick[0]);
+                    output.thumb_left_y = CastStickValueByte(stick[1]);
                 } else if (other != null || isPro) { // no need for && other != this
                     output.thumb_left_x = CastStickValueByte((other == input && !isLeft) ? -stick2[0] : -stick[0]);
                     output.thumb_left_y = CastStickValueByte((other == input && !isLeft) ? stick2[1] : stick[1]);
