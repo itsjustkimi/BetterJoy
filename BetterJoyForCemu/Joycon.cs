@@ -1395,8 +1395,13 @@ namespace BetterJoyForCemu {
 
             if (!isSnes) {
                 if ( isN64 ) {
-                    output.axis_left_x = CastStickValue(stick2[0]);
-                    output.axis_left_y = CastStickValue(stick2[1]);
+                    if ( stick[0] <= -1.0f && stick[1] <= -1.0f ) {
+                        output.axis_left_x = CastStickValue(stick2[0]);
+                        output.axis_left_y = CastStickValue(stick2[1]);
+                    } else {
+                        output.axis_left_x = CastStickValue(stick[0]);
+                        output.axis_left_y = CastStickValue(stick[1]);
+                    }
                 } else if (other != null || isPro) { // no need for && other != this
                     output.axis_left_x = CastStickValue((other == input && !isLeft) ? stick2[0] : stick[0]);
                     output.axis_left_y = CastStickValue((other == input && !isLeft) ? stick2[1] : stick[1]);

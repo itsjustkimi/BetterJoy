@@ -158,6 +158,9 @@ namespace BetterJoyForCemu {
                         case product_snes:
                             isLeft = true;
                             form.AppendTextBox("SNES controller connected.\r\n"); break;
+                        case product_n64:
+                            isLeft = true;
+                            form.AppendTextBox("N64 controller connected.\r\n"); break;
                         default:
                             form.AppendTextBox("Non Joy-Con Nintendo input device skipped.\r\n"); break;
                     }
