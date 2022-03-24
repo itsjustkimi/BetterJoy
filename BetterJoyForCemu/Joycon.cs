@@ -7,6 +7,7 @@ using System.Net.NetworkInformation;
 using System.Numerics;
 using System.Threading;
 using System.Windows.Forms;
+using System.Timers;
 using BetterJoyForCemu.Controller;
 using Nefarius.ViGEm.Client.Targets.DualShock4;
 using Nefarius.ViGEm.Client.Targets.Xbox360;
@@ -19,6 +20,10 @@ namespace BetterJoyForCemu {
         public bool isN64 = false;
         bool isUSB = false;
         private Joycon _other = null;
+        private static System.Timers.Timer aTimer;
+        private static Mutex mutex = new Mutex();
+
+
         public Joycon other {
             get {
                 return _other;
@@ -159,7 +164,15 @@ namespace BetterJoyForCemu {
                     queue.Dequeue();
                 }
                 queue.Enqueue(rumbleQueue);
+
+                mutex.WaitOne();
+                aTimer = new System.Timers.Timer(300);
+                aTimer.Elapsed += HandleTimerElapsed;
+                aTimer.AutoReset = false;
+                 aTimer.Enabled = true;
+                mutex.ReleaseMutex();
             }
+
             public Rumble(float[] rumble_info) {
                 queue = new Queue<float[]>();
                 queue.Enqueue(rumble_info);
@@ -189,7 +202,14 @@ namespace BetterJoyForCemu {
                 byte[] rumble_data = new byte[8];
                 float[] queued_data = queue.Dequeue();
 
-                if (queued_data[2] == 0.0f) {
+                if (queued_data == null) {
+                    rumble_data[0] = 0x0;
+                    rumble_data[1] = 0x1;
+                    rumble_data[2] = 0x40;
+                    rumble_data[3] = 0x40;
+                }
+
+                else if(queued_data[2] == 0.0f) {
                     rumble_data[0] = 0x0;
                     rumble_data[1] = 0x1;
                     rumble_data[2] = 0x40;
@@ -226,6 +246,16 @@ namespace BetterJoyForCemu {
                 }
 
                 return rumble_data;
+            }
+
+            public void HandleTimerElapsed(object sender, ElapsedEventArgs e) {
+                float[] rumbleQueue = new float[] { 0, 0, 0 };
+            
+                if (queue.Count > 15) {
+                    queue.Dequeue();
+                }
+    
+                queue.Enqueue(rumbleQueue);
             }
         }
 
@@ -1157,13 +1187,18 @@ namespace BetterJoyForCemu {
         }
 
         private void SendRumble(byte[] buf) {
+
             byte[] buf_ = new byte[report_len];
             buf_[0] = 0x10;
             buf_[1] = global_count;
-            if (global_count == 0xf) global_count = 0;
+            if (global_count == 0xf)
+            {
+                global_count = 0;
+            }
             else ++global_count;
             Array.Copy(buf, 0, buf_, 2, 8);
             PrintArray(buf_, DebugType.RUMBLE, format: "Rumble data sent: {0:S}");
+
             HIDapi.hid_write(handle, buf_, new UIntPtr(report_len));
         }
 
